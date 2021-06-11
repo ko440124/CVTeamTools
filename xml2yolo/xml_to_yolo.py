@@ -1,45 +1,24 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2020/7/29 20:29
-# @Author  : PeterH
-# @Email   : peterhuang0323@outlook.com
-# @File    : data_cfg.py
+# @Time    : 2021/6/10
+# @Author  : chenyuming
 # @Software: PyCharm
-# @Brief   : 生成测试、验证、训练的图片和标签
+# @Brief   : 将xml格式的标注转换为yolo格式
 
 import os
-from pathlib import Path
-from shutil import copyfile
-
 from PIL import Image, ImageDraw
 from xml.dom.minidom import parse
 import numpy as np
-import parser
-
-IMAGE_SET_ROOT = '/home/cym/CYM/dataset/diaoche/diaoche/Main/' # the diretary of train.txt and test.txt
-IMAGE_PATH = '/home/cym/CYM/dataset/diaoche/diaoche/JPEGImages/' # the diretary of images.  
-ANNOTATIONS_PATH = '/home/cym/CYM/dataset/diaoche/diaoche/Annotations/' # the diretary of annotation files.
-LABELS_ROOT = '/home/cym/CYM/dataset/diaoche/diaoche/Labels/'  # the diretary of saving the annotation files with yolo format. eg. xxx.txt
-
-DEST_IMAGES_PATH = "/home/cym/CYM/dataset/diaoche/yolo_cym/images"  # 区分训练集、测试集、验证集的图片目标路径
-DEST_LABELS_PATH = "/home/cym/CYM/dataset/diaoche/yolo_cym/labels"  # 区分训练集、测试集、验证集的标签文件目标路径
 
 
 def cord_converter(size, box):
-    """
-    将标注的 xml 文件标注转换为 darknet 形的坐标
+    """ 将标注的 xml 文件标注转换为 darknet 形的坐标
     :param size: 图片的尺寸： [w,h]
     :param box: anchor box 的坐标 [左上角x,左上角y,右下角x,右下角y,]
     :return: 转换后的 [x,y,w,h]
     """
-
-    x1 = int(box[0])
-    y1 = int(box[1])
-    x2 = int(box[2])
-    y2 = int(box[3])
-
+    x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
     dw = np.float32(1. / int(size[0]))
     dh = np.float32(1. / int(size[1]))
-
     w = x2 - x1
     h = y2 - y1
     x = x1 + (w / 2)
@@ -53,7 +32,7 @@ def cord_converter(size, box):
 
 
 def save_file(img_jpg_file_name, size, img_box):
-    save_file_name = LABELS_ROOT + '/' + img_jpg_file_name + '.txt'
+    save_file_name = os.path.join(save_label_root, img_jpg_file_name + '.txt')
     print('save_file_name= ', save_file_name, 'size=', size)
     if int(size[0]) == 0 or int(size[1]) == 0:
         print('ERROR: [{}] is broken! '.format(save_file_name))
@@ -62,17 +41,18 @@ def save_file(img_jpg_file_name, size, img_box):
     file_path = open(save_file_name, "a+")
     for box in img_box:
 
-        if box[0] == cls_names[0]: # person
-            cls_num = 0
-        elif box[0] == cls_names[1]: # hat
-            cls_num = 1
-        elif box[0] == cls_names[2]: # excavator
-            cls_num = 2
-        elif box[0] ==cls_names[3]: # crane
-            cls_num = 3
-        else:
-            continue
+        # if box[0] == cls_names[0]: # person
+        #     cls_num = 0
+        # elif box[0] == cls_names[1]: # hat
+        #     cls_num = 1
+        # elif box[0] == cls_names[2]: # excavator
+        #     cls_num = 2
+        # elif box[0] ==cls_names[3]: # crane
+        #     cls_num = 3
+        # else:
+        #     continue
 
+        cls_num = cls_names.index(box[0])
         new_box = cord_converter(size, box[1:])
 
         file_path.write(f"{cls_num} {new_box[0]} {new_box[1]} {new_box[2]} {new_box[3]}\n")
@@ -130,79 +110,32 @@ def get_xml_data(file_path, img_xml_file):
         img_jpg_file_name = img_xml_file + '.jpg'
         img_box.append([cls_name, x1, y1, x2, y2])
     # print(img_box)
-
     # test_dataset_box_feature(img_jpg_file_name, img_box)
-    global num_broken_file
-    num_broken_file += save_file(img_xml_file, [img_w, img_h], img_box)
-
-
-def copy_data(img_set_source, img_labels_root, imgs_source, type):
-    file_name = img_set_source + '/' + type + ".txt"
-    print('file_name: ', file_name)
-    file = open(file_name)
-
-    # 判断文件夹是否存在，不存在则创建
-    root_file = Path(DEST_IMAGES_PATH + '/' + type)
-    if not root_file.exists():
-        print(f"Path {root_file} is not exit")
-        os.makedirs(root_file)
-
-    root_file = Path(DEST_LABELS_PATH + '/' + type)
-    if not root_file.exists():
-        print(f"Path {root_file} is not exit")
-        os.makedirs(root_file)
-
-    # 遍历文件夹
-    for line in file.readlines():
-        # print(line)
-        img_name = line.strip('\n')
-        img_sor_file = imgs_source + '/' + img_name + '.jpg'
-        label_sor_file = img_labels_root + '/' + img_name + '.txt'
-
-        # 复制图片
-        DICT_DIR = DEST_IMAGES_PATH + '/' + type
-        img_dict_file = DICT_DIR + '/' + img_name + '.jpg'
-        try:
-            copyfile(img_sor_file, img_dict_file)
-        except:
-            img_sor_file = imgs_source + '/' + img_name + '.JPG'
-            copyfile(img_sor_file, img_dict_file)
-        # 复制 label
-        DICT_DIR = DEST_LABELS_PATH + '/' + type
-        img_dict_file = DICT_DIR + '/' + img_name + '.txt'
-        copyfile(label_sor_file, img_dict_file)
-
-        # print('label_dict_file: ', img_dict_file)
-
-    print('###############[{}]: The end of copying##############'.format(type))
+    save_file(img_xml_file, [img_w, img_h], img_box)
 
 
 if __name__ == '__main__':
+    IMAGE_PATH = '/home/cym/CYM/dataset/diaoche/diaoche/JPEGImages/'  # the diretary of images.
+    annotations_path = '/home/cym/CYM/dataset/VOCdevkit/VOC2007/Annotations/'  # the diretary of annotation files.
+    save_label_root = '/home/cym/CYM/dataset/VOCdevkit/VOC2007/Labels/'  # the diretary of saving the annotation files with yolo format. eg. xxx.txt
+
     # cls_names = ['person', 'hat', 'excavator', 'crane', 'forklift', 'elevator', 'smoke']
-    # num_box_cls = [0,  0,  0,  0,  0,  0,  0]
-    # num_broken_file = 0
+    cls_names = [ 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
+         'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor' ]
+    num_box_cls = [0] * len(cls_names)
 
     # step 1: xml转yolo格式的txt，并保存到Labels文件夹下。
-    # root = ANNOTATIONS_PATH
-    # files = sorted(os.listdir(root))
-    
-    # for file in files:
-    #     print("file name: ", file)
-    #     file_xml = file.split(".")
-    #     get_xml_data(root, file_xml[0])
-    #     # break
-    # print('len(files)= ', len(files))
-    # print('num_broken_file=', num_broken_file)
-    # print(cls_names)
-    # print(num_box_cls)
-    print('\n############################################\n')
-    # step 2：根据txt文件，划分train和val，并生成train.txt和test.txt
-    # 代码见：split_train_test.py
+    if os.path.exists(save_label_root) is False:
+        os.mkdir(save_label_root)
+    files = sorted(os.listdir(annotations_path))
+    print('len(files)= ', len(files))
+    for file in files:
+        print("file name: ", file)
+        file_xml = file.split(".")
+        get_xml_data(annotations_path, file_xml[0])
+        # break
 
-    # step 3：根据 train.txt和 test.txt，将图像和txt复制到对应的文件夹
-    img_set_root = IMAGE_SET_ROOT
-    imgs_root = IMAGE_PATH
-    img_labels_root = LABELS_ROOT
-    copy_data(img_set_root, img_labels_root, imgs_root, "train")
-    # copy_data(img_set_root, img_labels_root, imgs_root, "val")
-    copy_data(img_set_root, img_labels_root, imgs_root, "test")
+    print(cls_names)
+    print(num_box_cls)
+
+
