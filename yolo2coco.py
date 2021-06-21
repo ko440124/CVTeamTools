@@ -4,6 +4,16 @@ YOLO 格式的数据集转化为 COCO 格式的数据集
 --save_path 保存文件的名字(没有random_split时使用)
 --random_split 有则会随机划分数据集，然后再分别保存为3个文件。
 """
+"""
+yolo数据组成
+└── $ROOT_PATH
+
+  ├── classes.txt
+
+  ├── images
+
+  └──labels
+"""
 
 import os
 import cv2
